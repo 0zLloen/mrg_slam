@@ -251,6 +251,8 @@ GraphDatabase::flush_graph_queue(
     // Create unique keyframes and edges vectors to keep order of received messages
     std::vector<const mrg_slam_msgs::msg::KeyFrameRos *> unique_keyframes;
     std::vector<const mrg_slam_msgs::msg::EdgeRos *>     unique_edges;
+    std::unordered_set<boost::uuids::uuid, boost::hash<boost::uuids::uuid>> queued_keyframe_uuids;
+    std::unordered_set<boost::uuids::uuid, boost::hash<boost::uuids::uuid>> queued_edge_uuids;
 
     std::unordered_map<std::string, std::pair<boost::uuids::uuid, const geometry_msgs::msg::Pose *>> latest_robot_keyframes;
 
@@ -263,6 +265,9 @@ GraphDatabase::flush_graph_queue(
             if( edge_ignore_uuids_.find( edge_uuid ) != edge_ignore_uuids_.end() ) {
                 continue;
             }
+            if( !queued_edge_uuids.insert( edge_uuid ).second ) {
+                continue;
+            }
 
             unique_edges.push_back( &edge_ros );
         }
@@ -270,6 +275,9 @@ GraphDatabase::flush_graph_queue(
         for( const auto &keyframe_ros : graph_msg->keyframes ) {
             boost::uuids::uuid keyframe_uuid = uuid_from_string_generator_( keyframe_ros.uuid_str );
             if( uuid_keyframe_map_.find( keyframe_uuid ) != uuid_keyframe_map_.end() ) {
+                continue;
+            }
+            if( !queued_keyframe_uuids.insert( keyframe_uuid ).second ) {
                 continue;
             }
 
