@@ -43,7 +43,7 @@ PARAM_MAPPING = {
 # Overwrite the parameters from the yaml file with the ones from the cli if the cli string is not empty
 def overwrite_yaml_params_from_cli(yaml_params, cli_params):
     for key, value in cli_params.items():
-        if key in yaml_params and value != '':
+        if key in PARAM_MAPPING and value != '':
             # Since all parameters from cli in ROS2 are strings, we need to infer the correct data type
             yaml_params[key] = PARAM_MAPPING[key](value)
             # Overwrite the boolean values since they are not correctly parsed, non empty strings are always True
@@ -183,17 +183,6 @@ def launch_setup(context, *args, **kwargs):
             remappings=tf_remappings,
         )
 
-    # Create the map2odom publisher node
-    map2odom_publisher_ros2 = Node(
-        package='mrg_slam',
-        executable='map2odom_publisher_ros2.py',
-        name='map2odom_publisher_ros2',
-        namespace=model_namespace,
-        output='both',
-        parameters=[mrg_slam_params, shared_params],
-        remappings=tf_remappings,
-    )
-
     # Create the container node
     # If the launch command provides the debug argument we add the prefix to start gdbserver (move this to the node you need to debug)
     # More information can be found in hdl_multi_robot_graph_slam_debug.launch.py and at https://gist.github.com/JADC362/a4425c2d05cdaadaaa71b697b674425f
@@ -295,6 +284,24 @@ def launch_setup(context, *args, **kwargs):
         if model_namespace != '':
             mrg_slam_params['map_frame_id'] = model_namespace + '/' + mrg_slam_params['map_frame_id']
             mrg_slam_params['odom_frame_id'] = model_namespace + '/' + mrg_slam_params['odom_frame_id']
+
+        # Seed map->odom with the same namespaced frames used by MRG-SLAM. This
+        # avoids publishing a stray global map->odom before the first SLAM update.
+        map2odom_publisher_ros2 = Node(
+            package='mrg_slam',
+            executable='map2odom_publisher_ros2.py',
+            name='map2odom_publisher_ros2',
+            namespace=model_namespace,
+            output='both',
+            parameters=[
+                {
+                    'map_frame_id': mrg_slam_params['map_frame_id'],
+                    'odom_frame_id': mrg_slam_params['odom_frame_id'],
+                },
+                shared_params,
+            ],
+            remappings=tf_remappings,
+        )
         mrg_slam_node = ComposableNode(
             package='mrg_slam',
             plugin='mrg_slam::MrgSlamComponent',
