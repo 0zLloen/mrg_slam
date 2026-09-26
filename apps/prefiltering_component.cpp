@@ -73,7 +73,9 @@ public:
                                                                               std::placeholders::_1 ) );
         }
 
-        points_sub_  = create_subscription<sensor_msgs::msg::PointCloud2>( "velodyne_points", rclcpp::QoS( 64 ),
+        // Lidar is a live sensor stream: processing an old reliable backlog
+        // invalidates TF and can block every client behind the Zenoh router.
+        points_sub_  = create_subscription<sensor_msgs::msg::PointCloud2>( "velodyne_points", rclcpp::SensorDataQoS(),
                                                                            std::bind( &PrefilteringComponent::cloud_callback, this,
                                                                                       std::placeholders::_1 ) );
         points_pub_  = create_publisher<sensor_msgs::msg::PointCloud2>( "prefiltering/filtered_points", rclcpp::QoS( 32 ) );
