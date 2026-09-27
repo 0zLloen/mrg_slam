@@ -198,9 +198,20 @@ def launch_setup(context, *args, **kwargs):
         ('velodyne_points', shared_params['points_topic']),
     ]
     print_remappings(container_remaps, 'container_remappings')
+    # One executor per component (isolated container). With a single shared
+    # multi-threaded executor, slam_pose_broadcast_callback (reentrant group)
+    # took one pool thread per incoming broadcast, all blocked on
+    # main_thread_mutex_ while loop detection held it; once they filled the
+    # pool, the composed prefiltering / scan matching components got no thread
+    # and the front end went silent for up to 75 s while the robot drove.
+    # --use_multi_threaded_executor keeps a multi-threaded executor per
+    # component, so MrgSlamComponent's callback groups behave exactly as
+    # before; only the front end no longer shares its threads. Intra-process
+    # communication is unaffected (same process).
     container = Node(
         package='rclcpp_components',
-        executable='component_container_mt',
+        executable='component_container_isolated',
+        arguments=['--use_multi_threaded_executor'],
         name="mrg_slam_container",
         namespace=model_namespace,
         output='both',
