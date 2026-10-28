@@ -171,15 +171,6 @@ public:
         pub_options.callback_group                                 = reentrant_callback_group2;
         slam_status_publisher_ = create_publisher<mrg_slam_msgs::msg::SlamStatus>( "mrg_slam/slam_status", rclcpp::QoS( 16 ), pub_options );
 
-        optimization_timer_ = rclcpp::create_timer( shared_from_this(), get_clock(),
-                                                    rclcpp::Duration::from_seconds( get_parameter( "graph_update_interval" ).as_double() ),
-                                                    std::bind( &MrgSlamComponent::optimization_timer_callback, this ),
-                                                    reentrant_callback_group2 );
-        map_publish_timer_  = rclcpp::create_timer( shared_from_this(), get_clock(),
-                                                    rclcpp::Duration::from_seconds(
-                                                       get_parameter( "map_cloud_update_interval" ).as_double() ),
-                                                    std::bind( &MrgSlamComponent::map_points_publish_timer_callback, this ) );
-
         // Add static map service
         add_static_keyframes_service_ = create_service<mrg_slam_msgs::srv::AddStaticKeyFrames>(
             "mrg_slam/add_static_keyframes",
@@ -228,6 +219,18 @@ public:
 
         // Print the all parameters declared in this node so far
         print_ros2_parameters( get_node_parameters_interface(), get_logger() );
+
+        // The optimization callback uses a reentrant group. Start timers only
+        // after every processor, publisher and service has been initialized.
+        // Otherwise it can run concurrently with onInit and dereference null.
+        optimization_timer_ = rclcpp::create_timer( shared_from_this(), get_clock(),
+                                                    rclcpp::Duration::from_seconds( get_parameter( "graph_update_interval" ).as_double() ),
+                                                    std::bind( &MrgSlamComponent::optimization_timer_callback, this ),
+                                                    reentrant_callback_group2 );
+        map_publish_timer_  = rclcpp::create_timer( shared_from_this(), get_clock(),
+                                                    rclcpp::Duration::from_seconds(
+                                                       get_parameter( "map_cloud_update_interval" ).as_double() ),
+                                                    std::bind( &MrgSlamComponent::map_points_publish_timer_callback, this ) );
     }
 
 private:
